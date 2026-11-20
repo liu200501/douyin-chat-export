@@ -2,8 +2,8 @@
 
 Before this module, `os.path.join(os.path.dirname(os.path.dirname(__file__)), ...)`
 was hand-rolled in 8+ places across backend/, extractor/, and the root scripts.
-All state lives under DATA_DIR, which is the single bind-mount in Docker
-(./data:/app/data) and is git-ignored.
+All state lives under DATA_DIR, which is git-ignored. Docker deployments bind-mount
+./data to /app/data; native Windows runs use the same directory directly.
 """
 import os
 

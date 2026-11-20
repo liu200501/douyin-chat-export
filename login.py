@@ -1,7 +1,13 @@
 #!/usr/bin/env python3
-"""Open a local browser for Douyin QR login, then optionally sync to Docker."""
+"""Open a local browser for Douyin QR login.
+
+Windows 直接运行时，登录态保存在 data/browser_profile/，无需任何同步。
+Docker 用户仍可显式调用 sync_to_docker() / python login.py --sync-docker
+将登录态复制到容器 volume（同步逻辑已改为跨平台 Python 实现）。
+"""
 import asyncio
 import os
+import shutil
 import subprocess
 import sys
 
@@ -61,8 +67,10 @@ async def main():
     await context.close()
     await pw.stop()
 
-    # Try to sync to Docker if running via Docker + OrbStack/volume
-    sync_to_docker()
+    # Docker volume sync is opt-in (--sync-docker). Windows local runs write
+    # the profile directly to data/browser_profile/ and need no sync.
+    if "--sync-docker" in sys.argv:
+        sync_to_docker()
 
 
 def _find_docker_container():
@@ -93,9 +101,16 @@ def _find_compose_data_mount():
 
 
 def sync_to_docker():
-    """Detect Docker environment and sync browser_profile."""
+    """Detect Docker environment and sync browser_profile (opt-in).
+
+    Only meaningful on macOS with OrbStack or a local Docker Desktop install.
+    On Windows local runs this is never called unless explicitly requested.
+    """
     container = _find_docker_container()
     if not container:
+        if sys.platform != "darwin":
+            print("[*] 未检测到 Docker 容器，登录态已保存到 data/browser_profile/")
+            return
         # Try via OrbStack
         try:
             result = subprocess.run(
@@ -120,8 +135,10 @@ def sync_to_docker():
         target = os.path.join(mount_path, "browser_profile")
         if os.path.abspath(target) != os.path.abspath(PROFILE_DIR):
             print(f"[*] 同步到 Docker volume: {target}")
-            subprocess.run(["rm", "-rf", target])
-            subprocess.run(["cp", "-a", PROFILE_DIR, target])
+            # Cross-platform replacement for `rm -rf target && cp -a src target`
+            if os.path.isdir(target):
+                shutil.rmtree(target)
+            shutil.copytree(PROFILE_DIR, target)
             subprocess.run(["docker", "restart", container])
             print("[+] 同步完成，容器已重启")
         else:

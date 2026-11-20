@@ -15,6 +15,7 @@
 > **目录** ·
 > [功能](#功能) ·
 > [快速开始](#快速开始) ·
+> [环境要求](#环境要求) ·
 > [部署](#部署) ·
 > [使用](#使用) ·
 > [控制面板](#控制面板) ·
@@ -52,8 +53,34 @@
 - Web 控制面板：可视化采集 / 导出 / 定时任务 / 远程扫码登录 / 密码保护
 - 定时任务（cron）+ [Server酱](https://sct.ftqq.com) 失败推送到微信
 - Docker 一键部署，数据持久化到 `./data`
+- **Windows 原生运行**：无需 Docker / Linux / WSL，双击 `setup.bat` → `start.bat` 即可
 
 ## 快速开始
+
+### Windows 直接运行（无需 Docker / Linux，推荐）
+
+前置条件：自行安装 [Python 3.10+](https://www.python.org/downloads/)（安装时勾选 *Add Python to PATH*）与
+[Node.js 20.19+ 或 22.12+](https://nodejs.org/)；ffmpeg 可选（仅用于视频 faststart 转封装，不影响其他功能）。
+
+```bat
+:: 1. 首次运行：安装依赖 + 构建前端（只需一次）
+setup.bat
+
+:: 2. 启动服务（会自动打开浏览器）
+start.bat
+
+:: 停止服务
+stop.bat
+```
+
+> PowerShell 用户可直接运行 `.\setup.ps1` / `.\start.ps1` / `.\stop.ps1`；
+> 若执行策略拦截，用 `powershell -ExecutionPolicy Bypass -File .\setup.ps1`。
+> `start.ps1` 支持 `-Headless:$false`（让采集器显示浏览器窗口）、`-Port 8000`、`-NoBrowser` 等参数。
+
+打开 `http://127.0.0.1:8000/panel` → **登录**（导入 Cookie 或远程扫码，见[登录](#1-登录)），
+采集完成后访问 `http://127.0.0.1:8000` 浏览。所有数据保存在项目目录下的 `data/`。
+
+### Docker 快速开始（可选）
 
 已装 Docker 即可，无需 clone 仓库、无需本地构建。新建一个目录，保存以下内容为 `docker-compose.yml`：
 
@@ -85,15 +112,46 @@ docker compose up -d
 
 | 依赖 | 版本 | 说明 |
 |------|------|------|
-| Docker | >= 20.10 | **推荐**，容器内已含全部依赖 |
-| Python | >= 3.10 | 本地运行时的后端与采集器 |
-| Node.js | >= 20.19 或 >= 22.12 | 本地运行时构建前端（Vite 7 要求） |
+| Python | >= 3.10 | 后端 / 采集器；Windows 原生运行必需 |
+| Node.js | >= 20.19 或 >= 22.12 | 构建前端（Vite 7 要求）；Windows 原生运行必需 |
+| ffmpeg | 任意较新版本 | **可选**，仅视频 faststart 转封装；不装则跳过该步骤 |
+| Docker | >= 20.10 | **可选**，仅 Docker 部署方式需要 |
 
-> Docker 用户无需手动装 Python / Node.js，直接看 [Docker 部署](#docker-部署推荐)。
+> Windows 原生运行：直接双击 `setup.bat` → `start.bat`，脚本会自动创建 venv、安装 Playwright 浏览器并构建前端。
+> Docker 用户无需手动装 Python / Node.js，直接看 [Docker 部署（可选）](#docker-部署可选)。
 
 ## 部署
 
-### Docker 部署（推荐）
+### Windows 原生部署（推荐）
+
+用仓库自带的脚本，傻瓜式安装与启停：
+
+```bat
+setup.bat        :: 建 venv + pip install + playwright install chromium + 构建前端（只需一次）
+start.bat        :: 启动服务并打开浏览器
+stop.bat         :: 停止服务
+```
+
+PowerShell 对应 `.\setup.ps1` / `.\start.ps1` / `.\stop.ps1`；`start.ps1` 可传
+`-Headless:$false`（显示采集浏览器窗口）、`-Port 8000`、`-Mode web`、`-NoBrowser`。
+数据统一存于 `data/`，与 Docker 的数据目录完全兼容，可直接互换备份。
+
+如需手动执行（等价命令）：
+
+```bat
+python -m venv venv
+venv\Scripts\activate.bat
+pip install -r requirements.txt
+python -m playwright install chromium
+cd frontend && npm ci && npm run build && cd ..
+python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000
+```
+
+> 若 `npm ci` 拉包慢，可改用 `npm ci --registry=https://registry.npmmirror.com`。
+> ffmpeg 可选：从 [ffmpeg.org](https://ffmpeg.org/download.html) 下载后把 `ffmpeg.exe` 所在目录加入 PATH，
+> 视频下载才会执行 faststart 转封装（不装也能正常下载和播放，只是首次打开需要读取完整文件）。
+
+### Docker 部署（可选）
 
 预构建镜像提供 amd64 / arm64 双架构，无需 clone、无需本地构建。正式版随 `v*` Git tag
 发布，`main` 最新提交单独发布为测试版；compose 写法见[快速开始](#快速开始)。镜像已包含
@@ -154,8 +212,8 @@ docker compose up -d --build
 
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
-| `MODE` | `all` | `web` 只启动 Web / `scraper` 只采集 / `all` 全部 |
-| `HEADLESS` | `true` | 浏览器无头模式（Docker 中必须为 `true`） |
+| `MODE` | `all` | `web` 只启动 Web / `scraper` 只采集 / `all` 全部（Windows 用 `start.ps1 -Mode` 设置） |
+| `HEADLESS` | `true` | 浏览器无头模式；Docker 中必须为 `true`，Windows 桌面可用 `start.ps1 -Headless:$false` 显示窗口 |
 | `SCRAPER_INCREMENTAL` | `true` | 采集是否增量 |
 | `SCRAPER_FILTER` | (空) | 过滤指定会话名称 |
 | `SCRAPER_SCHEDULE` | (空) | cron 表达式，如 `0 */6 * * *`（空=不定时） |
@@ -182,23 +240,24 @@ networks:
 
 </details>
 
-### 本地运行
+### 源码手动运行（不借助脚本）
+
+Windows 用户推荐直接用上文的 `setup.bat` / `start.bat`。若想手动执行，等价命令如下（Windows / macOS / Linux 通用）：
 
 ```bash
 git clone https://github.com/TeamBreakerr/douyin-chat-export.git
 cd douyin-chat-export
 
-# Python 环境
 python3 -m venv venv
 source venv/bin/activate          # Windows: venv\Scripts\activate
 pip install -r requirements.txt
-playwright install chromium
+python -m playwright install chromium
 
 # 构建前端（Node.js >= 20.19 或 >= 22.12）
-cd frontend && npm install && npm run build && cd ..
+cd frontend && npm ci && npm run build && cd ..
 
 # 启动
-python3 -m uvicorn backend.main:app --host 127.0.0.1 --port 8000
+python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000
 ```
 
 浏览 `http://localhost:8000`，控制面板 `http://localhost:8000/panel`。
@@ -224,21 +283,20 @@ Windows 用户可用 [nvm-windows](https://github.com/coreybutler/nvm-windows) �
 首次使用需登录抖音，三选一：
 
 <details open>
-<summary><b>方式 A：本地浏览器扫码</b>（需 clone 仓库）</summary>
+<summary><b>方式 A：本地浏览器扫码</b>（源码部署 / Windows 原生可用）</summary>
 
-在宿主机运行（脚本依赖仓库内代码，仅源码部署可用），弹出真实浏览器窗口扫码，
-登录态经 volume 自动同步到容器：
+弹出真实浏览器窗口扫码；登录态保存到 `data/browser_profile/`，Windows 原生运行无需任何同步：
 
-```bash
-# 需先装 Playwright：pip install playwright && playwright install chromium
-python3 login.py
+```bat
+venv\Scripts\python.exe login.py
 ```
 
-扫码成功后浏览器自动关闭；检测到容器会自动重启使登录生效。
+扫码成功后浏览器自动关闭。Docker 用户如需同步到容器，可加 `--sync-docker` 参数
+（旧版自动同步已改为显式 opt-in，且不再依赖 Unix 命令）。
 </details>
 
 <details>
-<summary><b>方式 B：Cookie 导入</b>（推荐镜像部署用户，最简单）</summary>
+<summary><b>方式 B：Cookie 导入</b>（镜像 / Windows 原生都最简单）</summary>
 
 在任意浏览器登录抖音后导出 Cookie：
 
@@ -408,6 +466,8 @@ curl -H "Authorization: Bearer $TOKEN" -o chat.png \
 - 语音文件自动下载到 `data/media/voice/`，不受 CDN 过期影响
 - 语音转写失败后可通过再次采集或「补充历史语音转写」重试
 - 控制面板可开启「图片本地下载」，将图片和表情包持久化到 `data/media/`
+- Windows 原生运行与 Docker 共用 `data/` 目录，备份/迁移时直接复制整个 `data/` 即可
+- 想定时采集并推送失败通知？控制面板可直接配置 cron；也可用 Windows 计划任务调用 `venv\Scripts\python.exe extract.py --incremental`
 
 ## License
 

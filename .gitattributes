@@ -2,3 +2,7 @@
 # baseline. Keep both files LF-only even on Windows checkouts.
 backend/panel/static/panel.html text eol=lf
 tests/baseline/panel.html text eol=lf
+
+# Windows 启动脚本：必须是 CRLF
+*.bat text eol=crlf
+*.ps1 text eol=crlf
