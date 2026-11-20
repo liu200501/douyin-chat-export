@@ -20,9 +20,9 @@ def test_new_formats_and_group_json_jsonl(temp_db,tmp_path):
     outputs=[]
     for fmt in ['json','jsonl']:
         p=tmp_path/('out.'+fmt);ChatLabExporter('group',fmt).export(p)
-        if fmt=='json':outputs.append(json.loads(p.read_text()))
+        if fmt=='json':outputs.append(json.loads(p.read_text(encoding='utf-8')))
         else:
-            lines=[json.loads(l) for l in p.read_text().splitlines()];outputs.append({'meta':lines[0]['meta'],'messages':[{k:v for k,v in l.items() if k!='_type'} for l in lines if l['_type']=='message']})
+            lines=[json.loads(l) for l in p.read_text(encoding='utf-8').splitlines()];outputs.append({'meta':lines[0]['meta'],'messages':[{k:v for k,v in l.items() if k!='_type'} for l in lines if l['_type']=='message']})
     assert outputs[0]['messages']==outputs[1]['messages']
     assert outputs[0]['meta']['type']=='group' and outputs[0]['meta']['groupId']=='g'
     msgs={m['platformMessageId']:m for m in outputs[0]['messages']}
