@@ -3,7 +3,10 @@ name: Tests
 # 全部测试集中在这个工作流：Python pytest + 前端 vitest/build。
 # Python 测试在 Linux 与 Windows 双平台运行，用于验证 Windows 原生运行的兼容性。
 on:
-  # 由 ci.yml 在 push/PR 时复用；也支持在 Actions 页面手动单独触发。
+  # 直接响应 push/PR（这样分支 push 或 fork 内 PR 都能跑测试），
+  # 同时支持被 ci.yml 通过 workflow_call 复用与手动触发。
+  push:
+  pull_request:
   workflow_dispatch:
   workflow_call:
 concurrency:
